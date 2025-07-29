@@ -1,0 +1,4 @@
+{
+  "statusCode": 200,
+  "body": "{\"claim_id\": \"CLM-2025-00123\", \"source_images\": {\"total\": 1, \"analyzed\": 1, \"discarded_low_quality\": 0, \"clusters\": 1}, \"overall_damage_severity\": 0.0, \"areas\": [], \"data_gaps\": [\"No attic photos\"], \"confidence\": 0.87, \"generated_at\": \"2025-07-29T23:35:51.179238Z\"}"
+}
