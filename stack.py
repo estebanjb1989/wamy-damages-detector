@@ -41,16 +41,15 @@ class DamageDetectionStack(Stack):
                                public_read_access=True)
 
         # Lambda Function
-        fn = _lambda.Function(
+        
+        fn = _lambda.DockerImageFunction(
             self, "DamageDetectorFunction",
-            runtime=_lambda.Runtime.PYTHON_3_11,
-            handler="handler.lambda_handler",
-            code=_lambda.Code.from_asset("lambda"),
-            environment={
-                "BUCKET_NAME": bucket.bucket_name
-            },
+            code=_lambda.DockerImageCode.from_image_asset("."),
+            memory_size=256,
             timeout=Duration.seconds(30),
-            memory_size=256
+            environment={
+                "BUCKET_NAME": "wamy-dataset"
+            }
         )
 
         # IAM permissions for Lambda

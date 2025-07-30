@@ -1,4 +1,4 @@
-pip install -r requirements.txt
+pip install -r requirements-cdk.txt
 
 cdk destroy
 cdk bootstrap
