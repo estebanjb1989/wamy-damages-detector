@@ -59,6 +59,11 @@ class DamageDetectionStack(Stack):
             resources=["*"]
         ))
 
+        fn.add_to_role_policy(iam.PolicyStatement(
+            actions=["rekognition:DetectLabels", "rekognition:CompareFaces"],
+            resources=["*"]
+        ))
+
         bucket.grant_read(fn)
 
         # API Gateway
