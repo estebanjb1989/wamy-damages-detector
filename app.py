@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
-import aws_cdk as cdk
+from aws_cdk import (
+    Environment,
+    App
+)
 from stack import DamageDetectionStack
 
-app = cdk.App()
-DamageDetectionStack(app, "DamageDetectionStack", env=cdk.Environment(region="us-east-2"))
+app = App()
+DamageDetectionStack(app, "DamageDetectionStack", env=Environment(region="us-east-2"))
 app.synth()

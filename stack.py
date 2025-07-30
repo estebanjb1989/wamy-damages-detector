@@ -4,19 +4,41 @@ from aws_cdk import (
     aws_lambda as _lambda,
     aws_apigateway as apigw,
     aws_iam as iam,
+    RemovalPolicy,
+    Duration
 )
 from constructs import Construct
 import os
+import boto3
+from botocore.exceptions import ClientError
+
 
 class DamageDetectionStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs):
         super().__init__(scope, construct_id, **kwargs)
 
-        # S3 Bucket
-        bucket = s3.Bucket(self, "WamyDatasetBucket",
-                           bucket_name="wamy-dataset",
-                           removal_policy=cdk.RemovalPolicy.DESTROY,
-                           public_read_access=True)
+        bucket_name = "wamy-dataset"
+
+        # Use boto3 to check if the bucket exists
+        s3_client = boto3.client("s3")
+        try:
+            s3_client.head_bucket(Bucket=bucket_name)
+            # If the call succeeds, the bucket exists
+            print(f"Bucket '{bucket_name}' exists. Referencing it.")
+            bucket = s3.Bucket.from_bucket_name(self, "ExistingWamyBucket", bucket_name)
+        except ClientError as e:
+            # Bucket does not exist or is not accessible
+            print(f"Bucket '{bucket_name}' not found. Creating it.")
+            bucket = s3.Bucket(self, "WamyDatasetBucket",
+                               bucket_name=bucket_name,
+                               removal_policy=RemovalPolicy.DESTROY,
+                               block_public_access=s3.BlockPublicAccess(
+                                   block_public_acls=False,
+                                   block_public_policy=False,
+                                   ignore_public_acls=False,
+                                   restrict_public_buckets=False
+                               ),
+                               public_read_access=True)
 
         # Lambda Function
         fn = _lambda.Function(
@@ -27,7 +49,7 @@ class DamageDetectionStack(Stack):
             environment={
                 "BUCKET_NAME": bucket.bucket_name
             },
-            timeout=cdk.Duration.seconds(30),
+            timeout=Duration.seconds(30),
             memory_size=256
         )
 
@@ -47,5 +69,5 @@ class DamageDetectionStack(Stack):
             rest_api_name="WindDamageDetectionAPI",
         )
 
-        items = api.root.add_resource("detect")
-        items.add_method("POST")  # POST /detect
+        items = api.root.add_resource("aggregate")
+        items.add_method("POST")
