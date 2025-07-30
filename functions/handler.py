@@ -1,6 +1,6 @@
 import json
 import boto3
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import urlparse
 from PIL import Image, ImageFilter, ImageStat
 import requests
@@ -261,7 +261,7 @@ def generate_summary(
         "areas": [],
         "data_gaps": ["No attic photos"],
         "confidence": 0.87,
-        "generated_at": datetime.utcnow().isoformat() + "Z"
+        "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     }
 
     if damaged_images:

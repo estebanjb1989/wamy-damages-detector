@@ -7,6 +7,6 @@ COPY requirements.txt ./
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 
-COPY lambda ./lambda
+COPY functions ./functions
 
-CMD ["lambda.handler.lambda_handler"]
+CMD ["functions.handler.lambda_handler"]

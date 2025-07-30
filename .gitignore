@@ -1,5 +1,9 @@
 __pycache__/
+.pytest_cache/
 cdk.out/
 env/
 images/
 docker/
+.vscode/
+*.pyc
+test/__pycache__/
