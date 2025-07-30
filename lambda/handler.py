@@ -5,8 +5,65 @@ from urllib.parse import urlparse
 from PIL import Image, ImageFilter, ImageStat
 import requests
 from io import BytesIO
+from PIL import Image, ImageStat, ImageFilter
+import imagehash
 
 rekognition_client = boto3.client('rekognition', region_name='us-east-2')
+
+def download_image(url):
+    response = requests.get(url)
+    response.raise_for_status()
+    return Image.open(BytesIO(response.content)).convert('RGB')
+
+def get_blur_score(image):
+    # Use variance of Laplacian as blur metric
+    grayscale = image.convert("L")
+    laplacian = grayscale.filter(ImageFilter.FIND_EDGES)
+    stat = ImageStat.Stat(laplacian)
+    return stat.var[0]  # Variance of edge image
+
+def get_perceptual_hash(image):
+    return imagehash.phash(image)
+
+def deduplicate_and_filter(images, blur_threshold=100, hash_distance_threshold=6):
+    grouped = []
+    hashes = []
+    url_to_image = {}
+    
+    for url in images:
+        try:
+            img = download_image(url)
+            url_to_image[url] = img
+            h = get_perceptual_hash(img)
+
+            found_group = False
+            for group in grouped:
+                if h - group['hash'] <= hash_distance_threshold:
+                    group['candidates'].append((url, get_blur_score(img)))
+                    found_group = True
+                    break
+            
+            if not found_group:
+                grouped.append({
+                    'hash': h,
+                    'candidates': [(url, get_blur_score(img))]
+                })
+
+        except Exception as e:
+            print(f"Error downloading or processing {url}: {e}")
+            continue
+    
+    final_images = []
+    discarded_duplicates = []
+    for group in grouped:
+        candidates = sorted(group['candidates'], key=lambda x: x[1], reverse=True)
+        sharpest = candidates[0]
+        if sharpest[1] >= blur_threshold:
+            final_images.append(sharpest[0])
+        for discarded in candidates[1:]:
+            discarded_duplicates.append(discarded[0])
+
+    return final_images, discarded_duplicates
 
 def check_image_quality(image_url, blur_threshold=100, dark_threshold=40):
     """
@@ -79,6 +136,10 @@ def lambda_handler(event, context):
             'body': json.dumps({"error": "No images provided"})
         }
     
+    # Step 1: Deduplicate and filter blurry
+    final_images, duplicates = deduplicate_and_filter(images)
+    print(f"Kept {len(final_images)} high-quality images, discarded {len(duplicates)} duplicates")
+
     results = []
     discarded_low_quality = 0
     discarded_unrelated = 0
@@ -129,7 +190,9 @@ def lambda_handler(event, context):
         images, 
         results, 
         discarded_low_quality,
-        discarded_unrelated
+        discarded_unrelated,
+        final_images,
+        duplicates
     )
     
     file_path = "/tmp/damage_summary.json"
@@ -169,7 +232,15 @@ def detect_wind_damage(image_url):
         print(f"Error processing image {image_url}: {str(e)}")
         return None, 0, None, True  # treat errors as unrelated
 
-def generate_summary(claim_id, all_images, results, discarded_low_quality, discarded_unrelated):
+def generate_summary(
+        claim_id, 
+        all_images, 
+        results, 
+        discarded_low_quality, 
+        discarded_unrelated,
+        final_images,
+        duplicates
+    ):
     damaged_images = [r for r in results if r["wind_damage"]]
     avg_severity = round(sum(r["severity"] for r in damaged_images) / len(damaged_images), 1) if damaged_images else 0.0
 
@@ -177,10 +248,11 @@ def generate_summary(claim_id, all_images, results, discarded_low_quality, disca
         "claim_id": claim_id,
         "source_images": {
             "total": len(all_images),
-            "analyzed": len(all_images),
+            "analyzed": len(final_images),
             "discarded_low_quality": discarded_low_quality,
             "discarded_unrelated": discarded_unrelated,
-            "clusters": len(all_images)
+            "discarded_duplicates": len(duplicates),
+            "clusters": len(final_images)
         },
         "overall_damage_severity": avg_severity,
         "areas": [],

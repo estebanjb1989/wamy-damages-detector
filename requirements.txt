@@ -4,3 +4,4 @@ requests
 imagehash
 opencv-python-headless
 boto3
+imagehash
