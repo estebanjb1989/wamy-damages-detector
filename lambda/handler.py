@@ -242,7 +242,10 @@ def generate_summary(
         duplicates
     ):
     damaged_images = [r for r in results if r["wind_damage"]]
-    avg_severity = round(sum(r["severity"] for r in damaged_images) / len(damaged_images), 1) if damaged_images else 0.0
+    
+    weighted_sum = sum(r["severity"] * r.get("quality", 1) for r in damaged_images)
+    total_quality = sum(r.get("quality", 1) for r in damaged_images)
+    avg_severity = round(weighted_sum / total_quality, 1) if total_quality else 0.0
 
     summary = {
         "claim_id": claim_id,
@@ -270,16 +273,22 @@ def generate_summary(
             by_area[area].append(img)
 
         for area, items in by_area.items():
-            area_severity = round(sum(i["severity"] for i in items) / len(items), 1)
+            confirmed = [i for i in items if i["severity"] >= 2]
+            damage_confirmed = len(confirmed) >= 2
+            area_severity = round(
+                sum(i["severity"] for i in confirmed) / len(confirmed), 1
+            ) if confirmed else 0.0
+
             summary["areas"].append({
                 "area": area,
-                "damage_confirmed": True,
-                "primary_peril": "wind",
-                "count": len(items),
+                "damage_confirmed": damage_confirmed,
+                "primary_peril": "wind" if damage_confirmed else None,
+                "count": len(confirmed),
                 "avg_severity": area_severity,
-                "representative_images": [items[0]["url"]],
-                "notes": f"Damage detected in {area} area."
+                "representative_images": [i["url"] for i in confirmed[:1]] if confirmed else [],
+                "notes": f"Damage {'confirmed' if damage_confirmed else 'not confirmed'} in {area} area."
             })
 
     return summary
+
 

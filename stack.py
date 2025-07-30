@@ -46,7 +46,7 @@ class DamageDetectionStack(Stack):
             self, "DamageDetectorFunction",
             code=_lambda.DockerImageCode.from_image_asset("."),
             memory_size=256,
-            timeout=Duration.seconds(30),
+            timeout=Duration.minutes(5),
             environment={
                 "BUCKET_NAME": "wamy-dataset"
             }
